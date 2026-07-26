@@ -298,6 +298,30 @@ func (l *Log) Record(ev Event) (fresh bool, err error) {
 	return true, nil
 }
 
+// ArtifactInfo is what the log knows about a stored artifact.
+type ArtifactInfo struct {
+	Hash         string
+	ByteSize     int64
+	FirstSeenUTC string
+}
+
+// Artifact looks up what the log knows about the artifact with the given
+// digest (with or without an "algo:" prefix). found is false if no event
+// has ever referenced it.
+func (l *Log) Artifact(digest string) (info ArtifactInfo, found bool, err error) {
+	h := hexHash(digest)
+	var byteSize sql.NullInt64
+	var firstSeen string
+	err = l.db.QueryRow(`SELECT byte_size, first_seen_utc FROM artifact WHERE artifact_hash = ?`, h).Scan(&byteSize, &firstSeen)
+	if err == sql.ErrNoRows {
+		return ArtifactInfo{}, false, nil
+	}
+	if err != nil {
+		return ArtifactInfo{}, false, err
+	}
+	return ArtifactInfo{Hash: h, ByteSize: byteSize.Int64, FirstSeenUTC: firstSeen}, true, nil
+}
+
 // Verify walks the event log from the beginning and confirms every entry's
 // EventHash matches its recomputed value and correctly chains to the
 // previous entry's hash. It returns the number of events verified; on a

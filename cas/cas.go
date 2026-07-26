@@ -41,6 +41,15 @@ func (s *Store) Has(digest string) bool {
 	return err == nil
 }
 
+// Size returns the byte size of a stored blob.
+func (s *Store) Size(digest string) (int64, error) {
+	info, err := os.Stat(s.Path(digest))
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
+}
+
 // Write streams src into the store, hashing as it goes, and returns the hex
 // digest and byte size. deduped is true if a blob with that digest was
 // already present, in which case the existing copy is kept and src's bytes
