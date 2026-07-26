@@ -75,7 +75,7 @@ func TestPathSharding(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := "abcdef0123456789"
-	want := filepath.Join(store.root, "sha256", "ab", digest)
+	want := filepath.Join(store.root, "sha256", "ab", "cd", digest)
 	if got := store.Path(digest); got != want {
 		t.Fatalf("Path = %s, want %s", got, want)
 	}

@@ -8,8 +8,6 @@ import (
 	"sac/lineage"
 )
 
-var logPath string
-
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "walk the lineage log and confirm its hash chain is intact",
@@ -32,6 +30,5 @@ var verifyCmd = &cobra.Command{
 }
 
 func init() {
-	verifyCmd.Flags().StringVar(&logPath, "log", "", "lineage database path (required)")
 	rootCmd.AddCommand(verifyCmd)
 }

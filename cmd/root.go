@@ -7,7 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var storeRoot string
+var (
+	storeRoot string
+	logPath   string
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "sac",
@@ -24,4 +27,5 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&storeRoot, "store", "", "content-addressed store root")
+	rootCmd.PersistentFlags().StringVar(&logPath, "log", "", "lineage database path")
 }

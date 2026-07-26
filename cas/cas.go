@@ -28,9 +28,11 @@ func Open(dir string) (*Store, error) {
 }
 
 // Path returns the on-disk path a blob with the given hex digest would
-// occupy, whether or not it currently exists.
+// occupy, whether or not it currently exists. Two levels of 2-hex-char
+// sharding (65,536 leaf directories) keep any single directory small even
+// at millions of stored blobs.
 func (s *Store) Path(digest string) string {
-	return filepath.Join(s.root, "sha256", digest[:2], digest)
+	return filepath.Join(s.root, "sha256", digest[:2], digest[2:4], digest)
 }
 
 // Has reports whether a blob with the given digest is already stored.
