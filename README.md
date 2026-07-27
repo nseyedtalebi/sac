@@ -36,3 +36,7 @@ sac --log ./lineage.sqlite verify
 ## Intended use
 
 `sac` is deliberately generic. Downstream projects can use it as a preservation and provenance primitive without embedding domain-specific assumptions.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
