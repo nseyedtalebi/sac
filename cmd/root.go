@@ -26,6 +26,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&storeRoot, "store", "", "content-addressed store root")
-	rootCmd.PersistentFlags().StringVar(&logPath, "log", "", "lineage database path")
+	rootCmd.PersistentFlags().StringVar(&storeRoot, "store", os.Getenv("SAC_STORE"), "content-addressed store root")
+	rootCmd.PersistentFlags().StringVar(&logPath, "log", os.Getenv("SAC_LOG"), "lineage database path")
 }
