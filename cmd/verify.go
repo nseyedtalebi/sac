@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"sac/lineage"
+	"github.com/nseyedtalebi/sac/lineage"
 )
 
 var verifyCmd = &cobra.Command{

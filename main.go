@@ -1,6 +1,6 @@
 package main
 
-import "sac/cmd"
+import "github.com/nseyedtalebi/sac/cmd"
 
 func main() {
 	cmd.Execute()

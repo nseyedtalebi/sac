@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"sac/cas"
-	"sac/lineage"
+	"github.com/nseyedtalebi/sac/cas"
+	"github.com/nseyedtalebi/sac/lineage"
 )
 
 var skipCheck bool

@@ -1,4 +1,4 @@
-module sac
+module github.com/nseyedtalebi/sac
 
 go 1.25.0
 
