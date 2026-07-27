@@ -12,7 +12,9 @@ It can:
 
 ## Status
 
-This project is **AI-generated and under construction**. Treat the API, CLI flags, storage layout, and schema as unstable until the project has real releases and production hardening.
+This project is **AI-generated and under construction**. It is dead simple by design. LLMs are strong at docstring-to-function type coding where the problem is narrowly specified and clearly defined.
+
+Treat the API, CLI flags, storage layout, and schema as unstable until the project has real releases and production hardening.
 
 ## Quick example
 
