@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -78,6 +79,45 @@ func TestPathSharding(t *testing.T) {
 	want := filepath.Join(store.root, "sha256", "ab", "cd", digest)
 	if got := store.Path(digest); got != want {
 		t.Fatalf("Path = %s, want %s", got, want)
+	}
+}
+
+// TestPathTraversalCannotEscapeRoot guards the security boundary: a
+// caller-supplied digest containing path separators or ".." segments must
+// never make Path (and therefore Get/Has/Size) resolve outside the store
+// root, even though short non-hex "digests" are otherwise tolerated for
+// legacy sharding (see TestPathSharding).
+func TestPathTraversalCannotEscapeRoot(t *testing.T) {
+	root := t.TempDir()
+	store, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(filepath.Dir(root), "escaped-secret")
+	if err := os.WriteFile(outside, []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(outside)
+
+	for _, digest := range []string{
+		"../../../../../../../../etc/passwd",
+		"../../escaped-secret",
+		"..",
+		"ab/../../escaped-secret",
+	} {
+		if p := store.Path(digest); !strings.HasPrefix(filepath.Clean(p), filepath.Clean(root)+string(filepath.Separator)) {
+			t.Errorf("Path(%q) = %q, escapes store root %q", digest, p, root)
+		}
+		if store.Has(digest) {
+			t.Errorf("Has(%q) = true, want false (must not resolve outside root)", digest)
+		}
+		if _, err := store.Size(digest); err == nil {
+			t.Errorf("Size(%q) succeeded, want error", digest)
+		}
+		if f, err := store.Get(digest); err == nil {
+			f.Close()
+			t.Errorf("Get(%q) succeeded, want error", digest)
+		}
 	}
 }
 
