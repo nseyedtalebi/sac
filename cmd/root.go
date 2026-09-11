@@ -8,13 +8,13 @@ import (
 )
 
 var (
-	storeRoot string
-	logPath   string
+	storeRoot   string
+	catalogPath string
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "sac",
-	Short: "sac is a content-addressed store with a hash-chained lineage log",
+	Short: "sac is a content-addressed store with a SQLite inventory",
 }
 
 // Execute runs the root command.
@@ -27,5 +27,5 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&storeRoot, "store", os.Getenv("SAC_STORE"), "content-addressed store root")
-	rootCmd.PersistentFlags().StringVar(&logPath, "log", os.Getenv("SAC_LOG"), "lineage database path")
+	rootCmd.PersistentFlags().StringVar(&catalogPath, "catalog", os.Getenv("SAC_CATALOG"), "SQLite inventory path")
 }

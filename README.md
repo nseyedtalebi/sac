@@ -1,14 +1,13 @@
 # sac
 
-`sac` is a small Go CLI/library for content-addressed storage plus a local, hash-chained lineage log.
+`sac` is a small Go CLI/library for content-addressed storage plus a local SQLite inventory of known blobs.
 
 It can:
 
 - store files by SHA-256 digest in a sharded content-addressed store;
 - deduplicate repeated writes;
-- record ingest/transform-style events in SQLite;
-- link event inputs and outputs by artifact hash;
-- verify the event log's hash chain.
+- record each successful write by digest and size in SQLite;
+- verify every cataloged blob against its on-disk SHA-256 digest.
 
 ## Status
 
@@ -19,20 +18,20 @@ Treat the API, CLI flags, storage layout, and schema as unstable until the proje
 ## Quick example
 
 ```bash
-# Store a file and record a lineage event
-sac --store ./store --log ./lineage.sqlite put ./data.csv
+# Store a file and catalog it
+sac --store ./store --catalog ./catalog.sqlite put ./data.csv
 
 # Retrieve a blob by digest
-sac --store ./store --log ./lineage.sqlite get <sha256-hex> > data.csv
+sac --store ./store get <sha256-hex> > data.csv
 
-# Verify the lineage log hash chain
-sac --log ./lineage.sqlite verify
+# Verify cataloged blobs against the store
+sac --store ./store --catalog ./catalog.sqlite verify
 ```
 
 ## Packages
 
 - `cas` — content-addressed blob storage.
-- `lineage` — SQLite-backed hash-chained event log.
+- `catalog` — SQLite inventory of known blobs.
 - `cmd` — Cobra CLI commands.
 
 ## Intended use

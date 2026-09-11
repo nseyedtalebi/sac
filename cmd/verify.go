@@ -5,26 +5,42 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nseyedtalebi/sac/lineage"
+	"github.com/nseyedtalebi/sac/cas"
+	"github.com/nseyedtalebi/sac/catalog"
 )
 
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
-	Short: "walk the lineage log and confirm its hash chain is intact",
+	Short: "verify every artifact known to the SQLite inventory",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if logPath == "" {
-			return fmt.Errorf("--log is required")
+		if storeRoot == "" {
+			return fmt.Errorf("--store is required")
 		}
-		l, err := lineage.Open(logPath)
+		if catalogPath == "" {
+			return fmt.Errorf("--catalog is required")
+		}
+		store, err := cas.Open(storeRoot)
 		if err != nil {
 			return err
 		}
-		defer l.Close()
-		count, err := l.Verify()
+		inventory, err := catalog.Open(catalogPath)
 		if err != nil {
-			return fmt.Errorf("chain broken after %d verified events: %w", count, err)
+			return err
 		}
-		fmt.Printf("ok: %d events verified\n", count)
+		defer inventory.Close()
+		artifacts, err := inventory.List()
+		if err != nil {
+			return err
+		}
+		for _, artifact := range artifacts {
+			if err := store.Verify(artifact.Digest, artifact.Size); err != nil {
+				return fmt.Errorf("verify %s: %w", artifact.Digest, err)
+			}
+			if err := inventory.MarkVerified(artifact.Digest); err != nil {
+				return err
+			}
+		}
+		fmt.Printf("ok: %d artifacts verified\n", len(artifacts))
 		return nil
 	},
 }
