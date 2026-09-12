@@ -104,3 +104,30 @@ func TestConcurrentPutsCatalogEveryBlob(t *testing.T) {
 		t.Fatalf("verify output = %q, want 64 verified artifacts", out)
 	}
 }
+
+func TestLocateListsLocatorRecordedByPut(t *testing.T) {
+	dir := t.TempDir()
+	store := filepath.Join(dir, "store")
+	catalog := filepath.Join(dir, "catalog.sqlite")
+	src := filepath.Join(dir, "checkpoint.bin")
+	locator := "ml://checkpoint/meta%2Fllama-3.1-8b/step-000120"
+	if err := os.WriteFile(src, []byte("checkpoint bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	put := exec.Command("go", "run", ".", "put", "--locator", locator, src)
+	put.Env = append(os.Environ(), "SAC_STORE="+store, "SAC_CATALOG="+catalog)
+	if out, err := put.CombinedOutput(); err != nil {
+		t.Fatalf("go run . put failed: %v\n%s", err, out)
+	}
+
+	locate := exec.Command("go", "run", ".", "locate", "--prefix", "ml://checkpoint/meta%2Fllama-3.1-8b/")
+	locate.Env = append(os.Environ(), "SAC_STORE="+store, "SAC_CATALOG="+catalog)
+	out, err := locate.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go run . locate failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), locator) {
+		t.Fatalf("locate output = %q, want locator %q", out, locator)
+	}
+}

@@ -18,14 +18,17 @@ Treat the API, CLI flags, storage layout, and schema as unstable until the proje
 ## Quick example
 
 ```bash
-# Store a file and catalog it
-sac --store ./store --catalog ./catalog.sqlite put ./data.csv
+# Store a file, catalog it, and record an observed source URI
+sac --store ./store --catalog ./catalog.sqlite put --locator file:///imports/data.csv ./data.csv
 
 # Retrieve a blob by digest
 sac --store ./store get <sha256-hex> > data.csv
 
 # Verify cataloged blobs against the store
 sac --store ./store --catalog ./catalog.sqlite verify
+
+# Find cataloged artifacts by locator prefix
+sac --catalog ./catalog.sqlite locate --prefix file:///imports/
 ```
 
 ## Packages

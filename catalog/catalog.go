@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/nseyedtalebi/sac/cas"
@@ -22,6 +24,13 @@ CREATE TABLE IF NOT EXISTS artifact (
     first_seen_utc    TEXT NOT NULL,
     last_verified_utc TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS artifact_locator (
+    digest      TEXT NOT NULL REFERENCES artifact(digest),
+    locator     TEXT NOT NULL,
+    observed_at TEXT NOT NULL,
+    PRIMARY KEY (digest, locator)
+);
+CREATE INDEX IF NOT EXISTS artifact_locator_by_locator ON artifact_locator(locator);
 `
 
 const (
@@ -40,6 +49,14 @@ type Artifact struct {
 	Size            int64
 	FirstSeenUTC    string
 	LastVerifiedUTC string
+}
+
+// LocatedArtifact is one artifact observed at a URI locator.
+type LocatedArtifact struct {
+	Digest     string
+	Size       int64
+	Locator    string
+	ObservedAt string
 }
 
 // Open connects to (creating if needed) the catalog database at path.
@@ -71,14 +88,19 @@ func Open(path string) (*Catalog, error) {
 // Close closes the underlying database.
 func (c *Catalog) Close() error { return c.db.Close() }
 
-// Record adds a successfully written blob to the inventory. Re-recording the
-// same digest and size is a no-op; a different size is a corruption signal.
-func (c *Catalog) Record(digest string, size int64) (fresh bool, err error) {
+// Record adds a successfully written blob and optional observed URI locators to
+// the inventory. Re-recording the same digest and size is a no-op; a different
+// size is a corruption signal.
+func (c *Catalog) Record(digest string, size int64, locators ...string) (fresh bool, err error) {
 	if !cas.ValidDigest(digest) {
 		return false, fmt.Errorf("catalog: invalid digest %q", digest)
 	}
 	if size < 0 {
 		return false, fmt.Errorf("catalog: size must not be negative")
+	}
+	locators, err = normalizeLocators(locators)
+	if err != nil {
+		return false, err
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
@@ -113,6 +135,15 @@ func (c *Catalog) Record(digest string, size int64) (fresh bool, err error) {
 		} else {
 			fresh = true
 		}
+		for _, locator := range locators {
+			if _, err := tx.Exec(
+				`INSERT INTO artifact_locator(digest, locator, observed_at) VALUES (?, ?, ?)
+				 ON CONFLICT(digest, locator) DO NOTHING`,
+				digest, locator, now,
+			); err != nil {
+				return err
+			}
+		}
 		return tx.Commit()
 	})
 	return fresh, err
@@ -130,6 +161,39 @@ func (c *Catalog) List() ([]Artifact, error) {
 	for rows.Next() {
 		var artifact Artifact
 		if err := rows.Scan(&artifact.Digest, &artifact.Size, &artifact.FirstSeenUTC, &artifact.LastVerifiedUTC); err != nil {
+			return nil, err
+		}
+		artifacts = append(artifacts, artifact)
+	}
+	return artifacts, rows.Err()
+}
+
+// ListLocators returns every artifact with a locator that starts with prefix.
+// An empty prefix lists all locator observations.
+func (c *Catalog) ListLocators(prefix string) ([]LocatedArtifact, error) {
+	if prefix != "" {
+		if _, err := parseLocator(prefix); err != nil {
+			return nil, err
+		}
+	}
+	pattern := escapeLike(prefix) + "%"
+	rows, err := c.db.Query(
+		`SELECT a.digest, a.byte_size, l.locator, l.observed_at
+		 FROM artifact_locator AS l
+		 JOIN artifact AS a ON a.digest = l.digest
+		 WHERE l.locator LIKE ? ESCAPE '\'
+		 ORDER BY l.locator, a.digest`,
+		pattern,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	artifacts := make([]LocatedArtifact, 0)
+	for rows.Next() {
+		var artifact LocatedArtifact
+		if err := rows.Scan(&artifact.Digest, &artifact.Size, &artifact.Locator, &artifact.ObservedAt); err != nil {
 			return nil, err
 		}
 		artifacts = append(artifacts, artifact)
@@ -168,4 +232,32 @@ func retryBusy(op func() error) error {
 func isBusy(err error) bool {
 	var sqliteErr *sqlite.Error
 	return errors.As(err, &sqliteErr) && sqliteErr.Code() == sqlite3.SQLITE_BUSY
+}
+
+func normalizeLocators(locators []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(locators))
+	result := make([]string, 0, len(locators))
+	for _, locator := range locators {
+		if _, err := parseLocator(locator); err != nil {
+			return nil, err
+		}
+		if _, exists := seen[locator]; !exists {
+			seen[locator] = struct{}{}
+			result = append(result, locator)
+		}
+	}
+	return result, nil
+}
+
+func parseLocator(locator string) (*url.URL, error) {
+	u, err := url.ParseRequestURI(locator)
+	if err != nil || u.Scheme == "" {
+		return nil, fmt.Errorf("catalog: locator must be an absolute URI, got %q", locator)
+	}
+	return u, nil
+}
+
+func escapeLike(s string) string {
+	replacer := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_")
+	return replacer.Replace(s)
 }

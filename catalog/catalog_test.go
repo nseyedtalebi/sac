@@ -86,3 +86,28 @@ func TestConcurrentRecordsDoNotLoseArtifacts(t *testing.T) {
 		t.Fatalf("artifact count = %d, want %d", len(artifacts), writers)
 	}
 }
+
+func TestRecordStoresLocatorAndListsMatchingPrefix(t *testing.T) {
+	c, err := Open(filepath.Join(t.TempDir(), "catalog.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+
+	modelDigest := strings.Repeat("b", 64)
+	otherDigest := strings.Repeat("c", 64)
+	if _, err := c.Record(modelDigest, 12, "ml://checkpoint/meta%2Fllama-3.1-8b/step-000120"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Record(otherDigest, 34, "ml://checkpoint/Qwen%2FQwen2.5-7B-Instruct/v1.0"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := c.ListLocators("ml://checkpoint/meta%2Fllama-3.1-8b/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Digest != modelDigest || rows[0].Size != 12 {
+		t.Fatalf("locator rows = %#v, want matching model artifact", rows)
+	}
+}

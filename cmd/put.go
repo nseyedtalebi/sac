@@ -9,6 +9,8 @@ import (
 	"github.com/nseyedtalebi/sac/catalog"
 )
 
+var putLocators []string
+
 var putCmd = &cobra.Command{
 	Use:   "put <file>",
 	Short: "write a file into the content-addressed store",
@@ -41,7 +43,7 @@ var putCmd = &cobra.Command{
 			status = "deduped"
 		}
 
-		fresh, err := inventory.Record(digest, size)
+		fresh, err := inventory.Record(digest, size, putLocators...)
 		if err != nil {
 			return err
 		}
@@ -55,5 +57,6 @@ var putCmd = &cobra.Command{
 }
 
 func init() {
+	putCmd.Flags().StringArrayVar(&putLocators, "locator", nil, "observed absolute URI for this artifact (repeatable)")
 	rootCmd.AddCommand(putCmd)
 }
