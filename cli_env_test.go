@@ -59,6 +59,58 @@ func TestVerifyUsesSACEnvironmentPaths(t *testing.T) {
 	}
 }
 
+func TestPruneMissingDryRunThenApplyRestoresVerify(t *testing.T) {
+	dir := t.TempDir()
+	store := filepath.Join(dir, "store")
+	catalog := filepath.Join(dir, "catalog.sqlite")
+	src := filepath.Join(dir, "deleted-artifact.txt")
+	if err := os.WriteFile(src, []byte("delete this blob"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := append(os.Environ(), "SAC_STORE="+store, "SAC_CATALOG="+catalog)
+	put := exec.Command("go", "run", ".", "put", "--locator", "file:///deleted-artifact.txt", src)
+	put.Env = env
+	putOut, err := put.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go run . put failed: %v\n%s", err, putOut)
+	}
+	digest := strings.Fields(string(putOut))[0]
+	if err := os.Remove(filepath.Join(store, "sha256", digest[:2], digest[2:4], digest)); err != nil {
+		t.Fatal(err)
+	}
+
+	dryRun := exec.Command("go", "run", ".", "prune-missing")
+	dryRun.Env = env
+	dryRunOut, err := dryRun.CombinedOutput()
+	if err != nil || !strings.Contains(string(dryRunOut), "dry-run: 1 missing artifacts") {
+		t.Fatalf("prune-missing dry-run = %v\n%s", err, dryRunOut)
+	}
+
+	verify := exec.Command("go", "run", ".", "verify")
+	verify.Env = env
+	if out, err := verify.CombinedOutput(); err == nil || !strings.Contains(string(out), digest) {
+		t.Fatalf("verify after dry-run = %v\n%s", err, out)
+	}
+
+	apply := exec.Command("go", "run", ".", "prune-missing", "--apply")
+	apply.Env = env
+	applyOut, err := apply.CombinedOutput()
+	if err != nil || !strings.Contains(string(applyOut), "ok: 1 missing artifacts removed") {
+		t.Fatalf("prune-missing --apply = %v\n%s", err, applyOut)
+	}
+
+	verify = exec.Command("go", "run", ".", "verify")
+	verify.Env = env
+	if out, err := verify.CombinedOutput(); err != nil || !strings.Contains(string(out), "ok: 0 artifacts verified") {
+		t.Fatalf("verify after apply = %v\n%s", err, out)
+	}
+	locate := exec.Command("go", "run", ".", "locate", "--prefix", "file:///deleted-artifact.txt")
+	locate.Env = env
+	if out, err := locate.CombinedOutput(); err != nil || string(out) != "[]\n" {
+		t.Fatalf("locate after apply = %v\n%s", err, out)
+	}
+}
+
 func TestConcurrentPutsCatalogEveryBlob(t *testing.T) {
 	dir := t.TempDir()
 	store := filepath.Join(dir, "store")

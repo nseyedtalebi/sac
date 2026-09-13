@@ -217,6 +217,33 @@ func (c *Catalog) MarkVerified(digest string) error {
 	})
 }
 
+// Remove deletes an artifact and its locator observations from the inventory.
+func (c *Catalog) Remove(digest string) error {
+	if !cas.ValidDigest(digest) {
+		return fmt.Errorf("catalog: invalid digest %q", digest)
+	}
+	return retryBusy(func() error {
+		tx, err := c.db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err := tx.Exec(`DELETE FROM artifact_locator WHERE digest = ?`, digest); err != nil {
+			return err
+		}
+		result, err := tx.Exec(`DELETE FROM artifact WHERE digest = ?`, digest)
+		if err != nil {
+			return err
+		}
+		if removed, err := result.RowsAffected(); err != nil {
+			return err
+		} else if removed != 1 {
+			return fmt.Errorf("catalog: unknown digest %s", digest)
+		}
+		return tx.Commit()
+	})
+}
+
 func retryBusy(op func() error) error {
 	delay := 10 * time.Millisecond
 	for attempt := 0; ; attempt++ {

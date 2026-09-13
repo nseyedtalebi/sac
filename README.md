@@ -27,6 +27,10 @@ sac --store ./store get <sha256-hex> > data.csv
 # Verify cataloged blobs against the store
 sac --store ./store --catalog ./catalog.sqlite verify
 
+# Reconcile entries for blobs intentionally removed from the store
+sac --store ./store --catalog ./catalog.sqlite prune-missing
+sac --store ./store --catalog ./catalog.sqlite prune-missing --apply
+
 # Find cataloged artifacts by locator prefix
 sac --catalog ./catalog.sqlite locate --prefix file:///imports/
 ```
